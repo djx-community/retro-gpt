@@ -1,8 +1,10 @@
 <script lang="ts">
+	// Previous script code remains exactly the same
 	import { onMount, onDestroy } from 'svelte';
 
 	let isLoading = true;
 	let revealProgress = 0;
+	let scaleProgress = 0;
 	let glitchState = {
 		isGlitching: false,
 		offsetX: 0,
@@ -14,13 +16,38 @@
 	let animationFrame: number;
 	let startTime: number | null = null;
 	const duration = 5000;
+	const firstPhaseThreshold = 0.3;
+	const firstPhaseDuration = duration * firstPhaseThreshold;
+	const secondPhaseDuration = (duration * (1 - firstPhaseThreshold)) / 2;
 
 	function animate(timestamp: number) {
 		if (!startTime) startTime = timestamp;
 		const progress = timestamp - startTime;
-		revealProgress = Math.min(progress / duration, 1);
 
-		if (progress < duration) {
+		if (progress <= firstPhaseDuration) {
+			revealProgress = (progress / firstPhaseDuration) * firstPhaseThreshold;
+		} else {
+			const secondPhaseProgress = progress - firstPhaseDuration;
+			revealProgress =
+				firstPhaseThreshold +
+				(secondPhaseProgress / secondPhaseDuration) * (1 - firstPhaseThreshold);
+		}
+
+		revealProgress = Math.min(revealProgress, 1);
+
+		const scaleAmount = 0.1;
+		if (revealProgress < 1) {
+			scaleProgress = 1 + scaleAmount * revealProgress;
+		} else {
+			const scaleDownDuration = 200;
+			const scaleDownProgress = Math.min(
+				(progress - (firstPhaseDuration + secondPhaseDuration)) / scaleDownDuration,
+				1
+			);
+			scaleProgress = 1 + scaleAmount * (1 - scaleDownProgress);
+		}
+
+		if (revealProgress < 1 || scaleProgress > 1) {
 			animationFrame = requestAnimationFrame(animate);
 		}
 	}
@@ -30,10 +57,8 @@
 			isLoading = false;
 		}, 5000);
 
-		// Start animation
 		animationFrame = requestAnimationFrame(animate);
 
-		// Random glitch timing
 		const glitchTime = Math.random() * 3000 + 1000;
 		const glitchTimer = setTimeout(() => {
 			let step = 0;
@@ -70,20 +95,19 @@
 </script>
 
 <div class="relative h-screen w-screen bg-black overflow-hidden">
-	<!-- CRT scan lines -->
+	<!-- Modified CRT scan lines with increased gap -->
 	<div
 		class="absolute inset-0 pointer-events-none animate-scanline"
 		style="
-        background: repeating-linear-gradient(
-          0deg,
-          rgba(255, 255, 255, 0.1) 0px,
-          rgba(255, 255, 255, 0.1) 1px,
-          transparent 1px,
-          transparent 8px
-        );
-        background-size: 100% 8px;
-        animation: scanline 0.5s linear infinite;
-      "
+		background: repeating-linear-gradient(
+		  0deg,
+		  rgba(255, 255, 255, 0.1) 0px,
+		  rgba(255, 255, 255, 0.1) 2px,
+		  transparent 2px,
+		  transparent 40px
+		);
+		background-size: 100% 40px;
+	  "
 	/>
 
 	<!-- Screen flicker effect -->
@@ -94,23 +118,26 @@
 	<!-- Main content container -->
 	<div class="relative flex items-center justify-center h-full w-full">
 		<!-- Chromatic aberration layers -->
-		<div class="relative w-64 h-64 overflow-visible animate-crt-displacement">
+		<div
+			class="relative w-64 h-64 overflow-visible animate-crt-displacement"
+			style="transform: scale({scaleProgress}); transition: transform 0.2s ease-out;"
+		>
 			<!-- Red channel -->
 			<div
 				class="absolute w-full h-full"
 				style:clip-path="inset(0 0 0 {100 - revealProgress * 100}%)"
 				style="
-            transform: 
-              translate(
-                {glitchState.offsetX - (glitchState.isGlitching ? 2 : 0)}px,
-                {glitchState.offsetY}px
-              )
-              rotate({glitchState.rotation}deg)
-              scale({glitchState.scale});
-            opacity: {glitchState.isGlitching ? 0.5 : 1};
-            transition: all 0.05s linear;
-            mix-blend-mode: screen;
-          "
+			transform: 
+			  translate(
+				{glitchState.offsetX - (glitchState.isGlitching ? 2 : 0)}px,
+				{glitchState.offsetY}px
+			  )
+			  rotate({glitchState.rotation}deg)
+			  scale({glitchState.scale});
+			opacity: {glitchState.isGlitching ? 0.5 : 1};
+			transition: all 0.05s linear;
+			mix-blend-mode: screen;
+		  "
 			>
 				<div class="w-full h-full bg-red-500 rounded-lg" />
 			</div>
@@ -120,17 +147,17 @@
 				class="absolute w-full h-full"
 				style:clip-path="inset(0 0 0 {100 - revealProgress * 100}%)"
 				style="
-            transform: 
-              translate(
-                {glitchState.offsetX}px,
-                {glitchState.offsetY + (glitchState.isGlitching ? 2 : 0)}px
-              )
-              rotate({glitchState.rotation}deg)
-              scale({glitchState.scale});
-            opacity: {glitchState.isGlitching ? 0.5 : 1};
-            transition: all 0.05s linear;
-            mix-blend-mode: screen;
-          "
+			transform: 
+			  translate(
+				{glitchState.offsetX}px,
+				{glitchState.offsetY + (glitchState.isGlitching ? 2 : 0)}px
+			  )
+			  rotate({glitchState.rotation}deg)
+			  scale({glitchState.scale});
+			opacity: {glitchState.isGlitching ? 0.5 : 1};
+			transition: all 0.05s linear;
+			mix-blend-mode: screen;
+		  "
 			>
 				<div class="w-full h-full bg-green-500 rounded-lg" />
 			</div>
@@ -140,17 +167,17 @@
 				class="absolute w-full h-full"
 				style:clip-path="inset(0 0 0 {100 - revealProgress * 100}%)"
 				style="
-            transform: 
-              translate(
-                {glitchState.offsetX + (glitchState.isGlitching ? 2 : 0)}px,
-                {glitchState.offsetY - (glitchState.isGlitching ? 2 : 0)}px
-              )
-              rotate({glitchState.rotation}deg)
-              scale({glitchState.scale});
-            opacity: {glitchState.isGlitching ? 0.5 : 1};
-            transition: all 0.05s linear;
-            mix-blend-mode: screen;
-          "
+			transform: 
+			  translate(
+				{glitchState.offsetX + (glitchState.isGlitching ? 2 : 0)}px,
+				{glitchState.offsetY - (glitchState.isGlitching ? 2 : 0)}px
+			  )
+			  rotate({glitchState.rotation}deg)
+			  scale({glitchState.scale});
+			opacity: {glitchState.isGlitching ? 0.5 : 1};
+			transition: all 0.05s linear;
+			mix-blend-mode: screen;
+		  "
 			>
 				<div class="w-full h-full bg-blue-500 rounded-lg">
 					<div class="absolute inset-0 flex items-center justify-center">
@@ -165,10 +192,10 @@
 <style>
 	@keyframes scanline {
 		0% {
-			transform: translateY(-8px);
+			transform: translateY(0);
 		}
 		100% {
-			transform: translateY(0);
+			transform: translateY(40px);
 		}
 	}
 
@@ -274,6 +301,10 @@
 				0 0 30px #ff4da6,
 				0 0 40px #ff4da6;
 		}
+	}
+
+	:global(.animate-scanline) {
+		animation: scanline 0.75s linear infinite;
 	}
 
 	:global(.animate-crt-flicker) {
